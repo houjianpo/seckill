@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.List;
 import org.seckill.dao.SeckillDao;
 import org.seckill.dao.SuccessKilledDao;
+import org.seckill.dao.cache.RedisDao;
 import org.seckill.dto.Exposer;
 import org.seckill.dto.SeckillExecution;
 import org.seckill.entity.Seckill;
@@ -31,6 +32,10 @@ public class SeckillServiceImpl implements SeckillService {
 
 	@Autowired
 	private SuccessKilledDao successKilledDao;
+	
+	// 注入redisdao
+	@Autowired
+	private RedisDao redisDao;
 
 	// md5盐值字符串，用于混淆md5
 	private final String slat = "fdhaklsdf235146df%!~s$#$daf9df2349";
@@ -45,10 +50,25 @@ public class SeckillServiceImpl implements SeckillService {
 
 	public Exposer exportSeckillUrl(long seckillId) {
 		// 先拿到秒杀的Seckill
-		Seckill seckill = seckillDao.queryById(seckillId);
-		// 如果为空,直接返回秒杀失败
-		if (seckill == null) {
-			return new Exposer(false, seckillId);
+		// 优化:使用redis缓存方式，数据的一致性建立在超时的基础上
+		/**
+		 * get from cache
+		 * if null
+		 * 	get db
+		 * 	put cache
+		 * else
+		 * 	return 
+		 */
+		// 1:访问缓存
+		Seckill seckill = redisDao.getSeckill(seckillId);
+		if (null == seckill) {// 2:缓存中没有找到，则去数据库中读取
+			seckill = seckillDao.queryById(seckillId);
+			// 如果为空,直接返回秒杀失败
+			if (seckill == null) {
+				return new Exposer(false, seckillId);
+			} else {// 3:将结果放入缓存中
+				redisDao.putSeckill(seckill);
+			}
 		}
 		// 拿到秒杀开始时间
 		Date startTime = seckill.getStartTime();

@@ -47,4 +47,10 @@
         <!-- 给出需要扫描的dao接口包 -->
         <property name="basePackage" value="org.seckill.dao"/>
     </bean>
+    
+    <!-- RedisDao,需要自己定义 -->
+    <bean id="redisDao" class="org.seckill.dao.cache.RedisDao">
+    	<constructor-arg index="0" value="localhost" />
+    	<constructor-arg index="1" value="6379" />
+    </bean>
 </beans>
